@@ -2,6 +2,70 @@
 
 A production-ready Next.js 16 boilerplate focused on clean code, security, and robustness.
 
+## Quick Start
+
+```bash
+# 1. Clone and install
+git clone https://github.com/your-username/nextjs16-boilerplate.git my-app
+cd my-app
+npm install
+
+# 2. Set up environment
+cp .env.example .env.local
+
+# 3. Start PostgreSQL (choose one option below)
+
+# 4. Edit .env.local with your values (see below)
+
+# 5. Push database schema and run
+npm run db:push
+npm run dev
+```
+
+### Database Setup Options
+
+**Option A: Docker (Recommended for local dev)**
+
+```bash
+docker run -d --name postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=myapp \
+  -p 5432:5432 \
+  postgres:16
+
+# Use this DATABASE_URL in .env.local:
+# DATABASE_URL=postgresql://postgres:postgres@localhost:5432/myapp
+```
+
+**Option B: Cloud PostgreSQL (Free tiers available)**
+
+- [Neon](https://neon.tech/) - Serverless Postgres, generous free tier
+- [Supabase](https://supabase.com/) - Postgres with extras
+- [Railway](https://railway.app/) - Simple cloud hosting
+- [Vercel Postgres](https://vercel.com/storage/postgres) - If deploying to Vercel
+
+### Required Environment Variables
+
+Edit `.env.local` with your values:
+
+```bash
+# Database (required)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/myapp
+
+# Auth (required) - generate secret with: openssl rand -base64 32
+BETTER_AUTH_SECRET=your-32-character-secret-key-here
+BETTER_AUTH_URL=http://localhost:3000
+
+# Google OAuth (required) - see docs/GOOGLE_AUTH.md
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Stripe (optional) - see docs/STRIPE.md
+# STRIPE_SECRET_KEY=sk_test_...
+# NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+```
+
 ## Documentation
 
 | Document                                     | Purpose                                          |
@@ -129,6 +193,10 @@ git commit -m "Initial commit from nextjs16-boilerplate"
 ## Requirements
 
 - Node.js >= 20.0.0 (see `.nvmrc`)
+- PostgreSQL database (see [Quick Start](#quick-start) for options)
+- Environment variables configured (copy `.env.example` to `.env.local`)
+
+> **Note:** This boilerplate requires environment setup before building. This is intentional - it ensures your configuration is correct before you start development.
 
 ## Getting Started
 

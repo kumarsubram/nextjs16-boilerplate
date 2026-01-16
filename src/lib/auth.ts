@@ -3,6 +3,16 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 
+/**
+ * Better Auth Configuration
+ *
+ * Required environment variables:
+ * - BETTER_AUTH_SECRET: Secret key for signing tokens (32+ chars)
+ * - BETTER_AUTH_URL: Base URL for auth (e.g., http://localhost:3000)
+ * - GOOGLE_CLIENT_ID: Google OAuth client ID
+ * - GOOGLE_CLIENT_SECRET: Google OAuth client secret
+ */
+
 // Validate required environment variables
 function getEnvVar(name: string): string {
   const value = process.env[name];

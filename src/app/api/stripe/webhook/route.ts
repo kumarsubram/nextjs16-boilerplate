@@ -11,6 +11,9 @@ import {
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+// Force dynamic rendering - webhooks require runtime environment variables
+export const dynamic = "force-dynamic";
+
 /**
  * Stripe Webhook Handler
  *
@@ -33,6 +36,13 @@ import { eq } from "drizzle-orm";
  */
 
 export async function POST(request: Request) {
+  // Check if Stripe is configured
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json(
+      { error: "Stripe is not configured" },
+      { status: 503 }
+    );
+  }
   const body = await request.text();
   const headersList = await headers();
   const signature = headersList.get("stripe-signature");
