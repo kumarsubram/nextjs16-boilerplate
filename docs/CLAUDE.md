@@ -44,7 +44,7 @@ src/
 │   └── navigation/   # Mobile menu components
 ├── db/               # Drizzle ORM database connections and schema
 ├── hooks/            # Custom React hooks
-├── lib/              # Utilities (auth, api client, stripe, utils)
+├── lib/              # Utilities (auth, api client, stripe, validations, utils)
 ├── services/         # API service functions (client-side API calls)
 ├── constants/        # App constants
 ├── test/             # Test setup and utilities
@@ -161,12 +161,13 @@ export * from "./posts";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
+import { validateInput, mySchema } from "@/lib/validations";
 
 type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-export async function myAction(): Promise<ActionResult<MyType>> {
+export async function myAction(data: MyInput): Promise<ActionResult<MyType>> {
   try {
     // 1. Authenticate
     const session = await auth.api.getSession({ headers: await headers() });
@@ -174,9 +175,16 @@ export async function myAction(): Promise<ActionResult<MyType>> {
       return { success: false, error: "Not authenticated" };
     }
 
-    // 2. Do work
-    // 3. Revalidate if needed: revalidatePath("/path");
-    // 4. Return result
+    // 2. Validate input (REQUIRED for all user data)
+    const validation = validateInput(mySchema, data);
+    if (!validation.success) {
+      return { success: false, error: validation.error };
+    }
+    const validatedData = validation.data;
+
+    // 3. Do work with validatedData
+    // 4. Revalidate if needed: revalidatePath("/path");
+    // 5. Return result
     return { success: true, data: result };
   } catch (error) {
     return { success: false, error: "Failed" };
@@ -217,6 +225,85 @@ import {
   cancelMySubscription, // Cancel
   hasActiveSubscription, // Check status
 } from "@/actions";
+```
+
+## Input Validation (Zod 4)
+
+**IMPORTANT**: All user input MUST be validated with Zod schemas before processing.
+
+This project uses [Zod 4](https://zod.dev/v4) for schema validation. Zod 4 is faster and more type-efficient than previous versions.
+
+### Validation Files
+
+- `src/lib/validations/index.ts` - Core utilities and exports
+- `src/lib/validations/user-profile.ts` - User profile schemas
+- `src/lib/validations/roles.ts` - Role-related schemas
+
+### Using Validation
+
+```typescript
+import { validateInput, updateProfileSchema } from "@/lib/validations";
+
+// In a server action:
+const validation = validateInput(updateProfileSchema, data);
+if (!validation.success) {
+  return { success: false, error: validation.error };
+}
+// Use validation.data (typed and validated)
+```
+
+### Creating New Schemas
+
+```typescript
+// 1. Create src/lib/validations/posts.ts
+import { z } from "zod";
+
+export const createPostSchema = z.object({
+  title: z.string().min(1, "Title required").max(200),
+  content: z.string().min(1, "Content required"),
+  published: z.boolean().default(false),
+});
+
+export type CreatePostInput = z.infer<typeof createPostSchema>;
+
+// 2. Export from src/lib/validations/index.ts
+export * from "./posts";
+
+// 3. Use in server action
+import {
+  validateInput,
+  createPostSchema,
+  type CreatePostInput,
+} from "@/lib/validations";
+
+export async function createPost(data: CreatePostInput) {
+  const validation = validateInput(createPostSchema, data);
+  if (!validation.success) {
+    return { success: false, error: validation.error };
+  }
+  // ... use validation.data
+}
+```
+
+### Common Patterns
+
+```typescript
+import { z, patterns } from "@/lib/validations";
+
+// Use built-in patterns
+patterns.uuid; // UUID v4
+patterns.email; // Valid email
+patterns.url; // Valid URL
+patterns.nonEmptyString;
+patterns.positiveInt;
+patterns.nonNegativeInt;
+
+// Common schema patterns
+z.string().max(500); // Max length
+z.string().url().optional(); // Optional URL
+z.enum(["a", "b", "c"]); // Enum values
+z.number().int().positive(); // Positive integer
+z.string().nullable().optional(); // Can be null or undefined
 ```
 
 ## Stripe (Optional)
@@ -372,3 +459,4 @@ Optional (for payments):
 - Don't use relative imports outside of the same directory - use `@/` alias
 - Don't modify Stripe integration without updating `docs/STRIPE.md`
 - Don't modify auth without updating `docs/GOOGLE_AUTH.md`
+- Don't accept user input without Zod validation - always validate in server actions

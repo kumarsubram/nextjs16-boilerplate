@@ -4,8 +4,13 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { userProfile, type NewUserProfile } from "@/db/schema";
+import { userProfile } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import {
+  validateInput,
+  updateProfileSchema,
+  type UpdateProfileInput,
+} from "@/lib/validations";
 
 /**
  * User Profile Server Actions
@@ -15,10 +20,10 @@ import { auth } from "@/lib/auth";
  *
  * Pattern:
  * 1. Authenticate the user
- * 2. Validate input
+ * 2. Validate input with Zod
  * 3. Perform database operation
  * 4. Revalidate cache if needed
- * 5. Return result or throw error
+ * 5. Return result
  */
 
 // Result type for actions
@@ -54,9 +59,11 @@ export async function getMyProfile(): Promise<
 
 /**
  * Update the current user's profile
+ *
+ * @param data - Profile data to update (validated with Zod)
  */
 export async function updateMyProfile(
-  data: Pick<NewUserProfile, "bio" | "location" | "website">
+  data: UpdateProfileInput
 ): Promise<ActionResult<typeof userProfile.$inferSelect>> {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
@@ -64,6 +71,20 @@ export async function updateMyProfile(
     if (!session?.user) {
       return { success: false, error: "Not authenticated" };
     }
+
+    // Validate input
+    const validation = validateInput(updateProfileSchema, data);
+    if (!validation.success) {
+      return { success: false, error: validation.error };
+    }
+    const validatedData = validation.data;
+
+    // Clean up empty strings to null for optional URL fields
+    const cleanedData = {
+      bio: validatedData.bio || null,
+      location: validatedData.location || null,
+      website: validatedData.website || null,
+    };
 
     // Check if profile exists
     const [existing] = await db
@@ -79,7 +100,7 @@ export async function updateMyProfile(
       [profile] = await db
         .update(userProfile)
         .set({
-          ...data,
+          ...cleanedData,
           updatedAt: new Date(),
         })
         .where(eq(userProfile.userId, session.user.id))
@@ -90,7 +111,7 @@ export async function updateMyProfile(
         .insert(userProfile)
         .values({
           userId: session.user.id,
-          ...data,
+          ...cleanedData,
         })
         .returning();
     }

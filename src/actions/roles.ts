@@ -5,11 +5,19 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { userProfile, type UserRole } from "@/db/schema";
+import {
+  validateInput,
+  updateUserRoleSchema,
+  recordDonationSchema,
+  userRoleSchema,
+  patterns,
+} from "@/lib/validations";
 
 /**
  * Role-based Server Actions
  *
  * Server actions for managing user roles and access control.
+ * All user inputs are validated with Zod schemas.
  */
 
 type ActionResult<T> =
@@ -45,9 +53,13 @@ export async function getMyRole(): Promise<ActionResult<UserRole>> {
  * Check if current user has a specific role
  */
 export async function hasRole(role: UserRole): Promise<boolean> {
+  // Validate the role input
+  const validation = validateInput(userRoleSchema, role);
+  if (!validation.success) return false;
+
   const result = await getMyRole();
   if (!result.success) return false;
-  return result.data === role;
+  return result.data === validation.data;
 }
 
 /**
@@ -77,6 +89,9 @@ export async function isDonor(): Promise<boolean> {
 
 /**
  * Update a user's role (admin only)
+ *
+ * @param userId - The user ID to update
+ * @param newRole - The new role to assign
  */
 export async function updateUserRole(
   userId: string,
@@ -88,6 +103,16 @@ export async function updateUserRole(
     if (!session?.user) {
       return { success: false, error: "Not authenticated" };
     }
+
+    // Validate input
+    const validation = validateInput(updateUserRoleSchema, {
+      userId,
+      role: newRole,
+    });
+    if (!validation.success) {
+      return { success: false, error: validation.error };
+    }
+    const { userId: validUserId, role: validRole } = validation.data;
 
     // Check if current user is admin
     const [adminProfile] = await db
@@ -101,15 +126,15 @@ export async function updateUserRole(
     }
 
     // Prevent self-demotion from admin
-    if (userId === session.user.id && newRole !== "admin") {
+    if (validUserId === session.user.id && validRole !== "admin") {
       return { success: false, error: "Cannot demote yourself from admin" };
     }
 
     // Update the user's role
     await db
       .update(userProfile)
-      .set({ role: newRole, updatedAt: new Date() })
-      .where(eq(userProfile.userId, userId));
+      .set({ role: validRole, updatedAt: new Date() })
+      .where(eq(userProfile.userId, validUserId));
 
     return { success: true, data: null };
   } catch (error) {
@@ -121,23 +146,39 @@ export async function updateUserRole(
 /**
  * Upgrade user to paid_user (called after successful subscription)
  * This is called internally, not directly by users.
+ *
+ * @param userId - The user ID to upgrade
  */
 export async function upgradeToPayedUser(userId: string): Promise<void> {
+  // Validate userId
+  const validation = validateInput(patterns.nonEmptyString, userId);
+  if (!validation.success) {
+    throw new Error("Invalid user ID");
+  }
+
   await db
     .update(userProfile)
     .set({ role: "paid_user", updatedAt: new Date() })
-    .where(eq(userProfile.userId, userId));
+    .where(eq(userProfile.userId, validation.data));
 }
 
 /**
  * Downgrade user from paid_user (called when subscription ends)
  * This is called internally, not directly by users.
+ *
+ * @param userId - The user ID to downgrade
  */
 export async function downgradeFromPaidUser(userId: string): Promise<void> {
+  // Validate userId
+  const validation = validateInput(patterns.nonEmptyString, userId);
+  if (!validation.success) {
+    throw new Error("Invalid user ID");
+  }
+
   const [profile] = await db
     .select()
     .from(userProfile)
-    .where(eq(userProfile.userId, userId))
+    .where(eq(userProfile.userId, validation.data))
     .limit(1);
 
   // Don't downgrade admins or if they've donated before
@@ -150,21 +191,34 @@ export async function downgradeFromPaidUser(userId: string): Promise<void> {
   await db
     .update(userProfile)
     .set({ role: newRole, updatedAt: new Date() })
-    .where(eq(userProfile.userId, userId));
+    .where(eq(userProfile.userId, validation.data));
 }
 
 /**
  * Update donation stats and role (called after successful donation)
  * This is called internally, not directly by users.
+ *
+ * @param userId - The user ID
+ * @param amountInCents - The donation amount in cents
  */
 export async function recordDonation(
   userId: string,
   amountInCents: number
 ): Promise<void> {
+  // Validate input
+  const validation = validateInput(recordDonationSchema, {
+    userId,
+    amountInCents,
+  });
+  if (!validation.success) {
+    throw new Error(validation.error);
+  }
+  const { userId: validUserId, amountInCents: validAmount } = validation.data;
+
   const [profile] = await db
     .select()
     .from(userProfile)
-    .where(eq(userProfile.userId, userId))
+    .where(eq(userProfile.userId, validUserId))
     .limit(1);
 
   const currentDonations = profile?.totalDonations ?? 0;
@@ -180,26 +234,34 @@ export async function recordDonation(
     .update(userProfile)
     .set({
       role: newRole,
-      totalDonations: currentDonations + amountInCents,
-      lifetimeValue: currentLTV + amountInCents,
+      totalDonations: currentDonations + validAmount,
+      lifetimeValue: currentLTV + validAmount,
       updatedAt: new Date(),
     })
-    .where(eq(userProfile.userId, userId));
+    .where(eq(userProfile.userId, validUserId));
 }
 
 /**
  * Ensure user profile exists (creates one if not)
+ *
+ * @param userId - The user ID to ensure has a profile
  */
 export async function ensureUserProfile(userId: string): Promise<void> {
+  // Validate userId
+  const validation = validateInput(patterns.nonEmptyString, userId);
+  if (!validation.success) {
+    throw new Error("Invalid user ID");
+  }
+
   const [existing] = await db
     .select()
     .from(userProfile)
-    .where(eq(userProfile.userId, userId))
+    .where(eq(userProfile.userId, validation.data))
     .limit(1);
 
   if (!existing) {
     await db.insert(userProfile).values({
-      userId,
+      userId: validation.data,
       role: "user",
     });
   }
