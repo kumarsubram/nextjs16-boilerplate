@@ -123,6 +123,13 @@ Always use semantic color classes, never hardcoded colors:
 | `bg-muted`              | `bg-gray-100`                    |
 | `border-border`         | `border-gray-200`                |
 
+#### Accessibility (WCAG 2.1)
+
+- **Primary content** (body text users need to read): Use `text-foreground` (default)
+- **Secondary content** (timestamps, captions, helper text): Use `text-muted-foreground`
+- WCAG requires **4.5:1** contrast ratio for normal text, **3:1** for large text
+- Never use `text-muted-foreground` for main readable content like legal pages, articles, or forms
+
 #### Common Patterns
 
 ```tsx
