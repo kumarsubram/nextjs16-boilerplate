@@ -39,14 +39,14 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
           <h2 className="text-center text-2xl font-bold sm:text-3xl">
             Welcome!
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-500 sm:text-base dark:text-gray-400">
+          <p className="text-muted-foreground mt-2 text-center text-sm sm:text-base">
             We respect your privacy. No spam, no data selling, ever.
           </p>
         </CardHeader>
         <CardContent className="p-6 pt-0 sm:p-8 sm:pt-0">
           <div className="flex flex-col gap-4">
             {error && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-500 dark:bg-red-900/10">
+              <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
                 {error}
               </div>
             )}
@@ -67,10 +67,10 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
                 </span>
               </div>
             </Button>
-            <p className="mt-4 text-center text-sm text-gray-500">
+            <p className="text-muted-foreground mt-4 text-center text-sm">
               <Link
                 href="/privacy"
-                className="underline hover:text-gray-800 dark:hover:text-gray-200"
+                className="hover:text-foreground underline transition-colors"
               >
                 Privacy Policy
               </Link>

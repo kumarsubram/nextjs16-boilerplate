@@ -93,13 +93,13 @@ export function MobileNavPanel({
             onClick={onClose}
           />
 
-          {/* Main content panel - White (light) / Black (dark) */}
+          {/* Main content panel */}
           <motion.div
             initial="initial"
             animate="animate"
             exit="exit"
             variants={menuVariants}
-            className="fixed inset-0 z-40 bg-white dark:bg-black"
+            className="bg-background fixed inset-0 z-40"
           >
             <div className="flex h-full flex-col pt-20">
               {/* Navigation links */}
@@ -121,8 +121,8 @@ export function MobileNavPanel({
                           onClick={onClose}
                           className={`block rounded-lg px-4 py-3 text-lg font-medium transition-colors ${
                             isActive
-                              ? "underline decoration-green-500 decoration-2 underline-offset-4"
-                              : "text-gray-700 hover:bg-gray-100 hover:underline hover:decoration-green-500 hover:decoration-2 hover:underline-offset-4 dark:text-gray-300 dark:hover:bg-gray-800"
+                              ? "text-foreground underline decoration-green-500 decoration-2 underline-offset-4"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground hover:underline hover:decoration-green-500 hover:decoration-2 hover:underline-offset-4"
                           }`}
                         >
                           {link.label}
@@ -134,7 +134,7 @@ export function MobileNavPanel({
               </nav>
 
               {/* Bottom section */}
-              <div className="border-t border-gray-200 px-6 py-6 dark:border-gray-800">
+              <div className="border-border border-t px-6 py-6">
                 <div className="flex justify-center">
                   <AuthButton />
                 </div>

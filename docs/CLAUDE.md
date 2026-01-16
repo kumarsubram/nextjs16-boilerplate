@@ -79,6 +79,105 @@ docs/
 - Use `cn()` utility from `@/lib/utils` for conditional classes
 - All clickable elements must have `cursor-pointer`
 
+### Typography & Spacing
+
+**IMPORTANT**: Follow these guidelines for consistent typography across all pages.
+
+#### Font Sizes (Responsive)
+
+| Element            | Classes                                       | Usage                    |
+| ------------------ | --------------------------------------------- | ------------------------ |
+| Page Title (H1)    | `text-3xl sm:text-4xl lg:text-5xl`            | Main page headings       |
+| Section Title (H2) | `text-xl sm:text-2xl` or `text-lg sm:text-xl` | Card titles, sections    |
+| Subtitle (H3)      | `text-lg sm:text-xl`                          | Subsections              |
+| Body Large         | `text-base sm:text-lg`                        | Hero descriptions        |
+| Body Default       | `text-sm sm:text-base`                        | Regular paragraphs       |
+| Body Small         | `text-sm`                                     | Secondary text, captions |
+| Tiny               | `text-xs sm:text-sm`                          | Labels, badges           |
+
+#### Container & Padding
+
+```tsx
+// Page container (full-width pages)
+<div className="container max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+
+// Content container (narrower, for reading)
+<div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+
+// Card padding
+<CardContent className="p-4 sm:p-6">
+<CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">  // When following CardHeader
+```
+
+#### Color Classes
+
+Always use semantic color classes, never hardcoded colors:
+
+| Use This                | Not This                         |
+| ----------------------- | -------------------------------- |
+| `text-foreground`       | `text-black`, `text-gray-900`    |
+| `text-muted-foreground` | `text-gray-500`, `text-gray-400` |
+| `text-primary`          | `text-blue-500`                  |
+| `text-destructive`      | `text-red-500`                   |
+| `bg-background`         | `bg-white`                       |
+| `bg-muted`              | `bg-gray-100`                    |
+| `border-border`         | `border-gray-200`                |
+
+#### Common Patterns
+
+```tsx
+// Page with centered content
+<div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+  <div className="mb-8 text-center sm:mb-12">
+    <h1 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+      Page Title
+    </h1>
+    <p className="text-muted-foreground text-sm sm:text-base">
+      Page description here
+    </p>
+  </div>
+  {/* Content */}
+</div>
+
+// Card with responsive padding
+<Card>
+  <CardHeader className="p-4 sm:p-6">
+    <CardTitle className="text-lg sm:text-xl">Title</CardTitle>
+    <CardDescription className="text-sm">Description</CardDescription>
+  </CardHeader>
+  <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+    <p className="text-muted-foreground text-sm sm:text-base">Content</p>
+  </CardContent>
+</Card>
+
+// Centered utility page (404, error, login)
+<div className="flex min-h-[400px] items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
+  <Card className="w-full max-w-md">
+    {/* Content */}
+  </Card>
+</div>
+```
+
+#### Spacing Scale
+
+| Mobile  | Desktop | Usage                     |
+| ------- | ------- | ------------------------- |
+| `mb-4`  | `mb-6`  | Between related elements  |
+| `mb-6`  | `mb-8`  | Between sections          |
+| `mb-8`  | `mb-12` | Between major sections    |
+| `gap-2` | `gap-4` | Flex/grid items (compact) |
+| `gap-4` | `gap-6` | Flex/grid items (normal)  |
+
+#### Prose (Long-form Content)
+
+For legal pages, blog posts, or documentation:
+
+```tsx
+<div className="prose prose-sm prose-slate sm:prose-base dark:prose-invert max-w-none">
+  {/* Markdown/long content */}
+</div>
+```
+
 ### TypeScript
 
 - Strict mode enabled - avoid `any`
@@ -460,3 +559,6 @@ Optional (for payments):
 - Don't modify Stripe integration without updating `docs/STRIPE.md`
 - Don't modify auth without updating `docs/GOOGLE_AUTH.md`
 - Don't accept user input without Zod validation - always validate in server actions
+- Don't use hardcoded colors (`text-gray-500`) - use semantic colors (`text-muted-foreground`)
+- Don't use fixed font sizes - always use responsive sizes (e.g., `text-sm sm:text-base`)
+- Don't use fixed padding - use responsive padding (e.g., `p-4 sm:p-6`)
