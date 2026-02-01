@@ -1,4 +1,5 @@
 import Image from "next/image";
+
 import { APP_NAME, APP_LOGO_PATH, APP_LOGO_SIZE } from "@/constants";
 
 interface LogoProps {

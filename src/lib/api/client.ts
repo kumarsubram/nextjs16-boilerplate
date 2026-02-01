@@ -112,7 +112,7 @@ export function createApiClient(config: ApiClientConfig) {
 
         // Wait before retry (except on last attempt)
         if (attempt < maxRetries) {
-          await sleep(retryDelay * (attempt + 1)); // Exponential backoff
+          await sleep(retryDelay * (attempt + 1)); // Linear backoff
         }
       }
     }

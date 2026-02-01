@@ -1,6 +1,7 @@
+import { ReactElement } from "react";
+
 import { render, RenderOptions } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ReactElement } from "react";
 
 // Custom render function that includes providers if needed
 function customRender(

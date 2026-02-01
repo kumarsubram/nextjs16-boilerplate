@@ -37,22 +37,12 @@ export function getStripe(): Stripe {
       );
     }
     stripeInstance = new Stripe(key, {
-      apiVersion: "2025-12-15.clover",
+      apiVersion: "2026-01-28.clover",
       typescript: true,
     });
   }
   return stripeInstance;
 }
-
-/**
- * Legacy export for backwards compatibility
- * @deprecated Use getStripe() instead for proper error handling
- */
-export const stripe = new Proxy({} as Stripe, {
-  get(_, prop) {
-    return (getStripe() as unknown as Record<string | symbol, unknown>)[prop];
-  },
-});
 
 /**
  * Checkout Session Options

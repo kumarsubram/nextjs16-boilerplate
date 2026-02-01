@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+
 import { Loader2, LogOut } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { useSession, signOut } from "@/lib/auth-client";
 

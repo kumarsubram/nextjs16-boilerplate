@@ -1,11 +1,13 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+
 import { eq, sum } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+
 import { db } from "@/db";
 import { stripeCustomer, stripeSubscription, stripePayment } from "@/db/schema";
+import { auth } from "@/lib/auth";
 import {
   createCheckoutSession,
   createPortalSession,
@@ -14,6 +16,8 @@ import {
   resumeSubscription,
   isStripeConfigured,
 } from "@/lib/stripe/server";
+import type { ActionResult } from "@/types";
+
 import { ensureUserProfile } from "./roles";
 
 /**
@@ -23,10 +27,6 @@ import { ensureUserProfile } from "./roles";
  * All actions require authentication.
  * Stripe integration is optional - actions will fail gracefully if not configured.
  */
-
-type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
 
 /**
  * Check if Stripe is available
@@ -116,14 +116,6 @@ export async function createDonationCheckout(priceId: string): Promise<never> {
   }
 
   redirect(checkoutSession.url);
-}
-
-/**
- * Legacy alias for createSubscriptionCheckout
- * @deprecated Use createSubscriptionCheckout instead
- */
-export async function createCheckout(priceId: string): Promise<never> {
-  return createSubscriptionCheckout(priceId);
 }
 
 /**

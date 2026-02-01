@@ -12,11 +12,19 @@
  *   import { db } from "@/db/primary";
  */
 
-export { db as primaryDb, connection as primaryConnection } from "./primary";
+export {
+  db as primaryDb,
+  connection as primaryConnection,
+  checkConnection as checkPrimaryConnection,
+  closeConnection as closePrimaryConnection,
+} from "./primary";
 export {
   db as secondaryDb,
   connection as secondaryConnection,
   isSecondaryConfigured,
+  getSecondaryConnection,
+  getSecondaryDb,
+  checkConnection as checkSecondaryConnection,
 } from "./secondary";
 
 // Default export is primary database for convenience

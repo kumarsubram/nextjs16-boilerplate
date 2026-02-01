@@ -1,28 +1,32 @@
 "use server";
 
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+
+import { eq, sql } from "drizzle-orm";
+
 import { db } from "@/db";
-import { userProfile, type UserRole } from "@/db/schema";
+import { userProfile, type UserRole, type UserPlan } from "@/db/schema";
+import { auth } from "@/lib/auth";
 import {
   validateInput,
   updateUserRoleSchema,
   recordDonationSchema,
   userRoleSchema,
+  userPlanSchema,
   patterns,
 } from "@/lib/validations";
+import type { ActionResult } from "@/types";
 
 /**
- * Role-based Server Actions
+ * Role & Plan Server Actions
  *
- * Server actions for managing user roles and access control.
+ * Role = permissions (admin vs user)
+ * Plan = subscription tier (free, pro, enterprise)
+ *
  * All user inputs are validated with Zod schemas.
  */
 
-type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+// ── Role Actions (permissions) ──────────────────────────────
 
 /**
  * Get the current user's role
@@ -41,7 +45,6 @@ export async function getMyRole(): Promise<ActionResult<UserRole>> {
       .where(eq(userProfile.userId, session.user.id))
       .limit(1);
 
-    // Default to "user" if no profile exists
     return { success: true, data: profile?.role ?? "user" };
   } catch (error) {
     console.error("Failed to get role:", error);
@@ -53,7 +56,6 @@ export async function getMyRole(): Promise<ActionResult<UserRole>> {
  * Check if current user has a specific role
  */
 export async function hasRole(role: UserRole): Promise<boolean> {
-  // Validate the role input
   const validation = validateInput(userRoleSchema, role);
   if (!validation.success) return false;
 
@@ -70,28 +72,7 @@ export async function isAdmin(): Promise<boolean> {
 }
 
 /**
- * Check if current user has paid access (paid_user or admin)
- */
-export async function hasPaidAccess(): Promise<boolean> {
-  const result = await getMyRole();
-  if (!result.success) return false;
-  return ["admin", "paid_user"].includes(result.data);
-}
-
-/**
- * Check if current user has donated
- */
-export async function isDonor(): Promise<boolean> {
-  const result = await getMyRole();
-  if (!result.success) return false;
-  return ["admin", "paid_user", "donor"].includes(result.data);
-}
-
-/**
  * Update a user's role (admin only)
- *
- * @param userId - The user ID to update
- * @param newRole - The new role to assign
  */
 export async function updateUserRole(
   userId: string,
@@ -104,7 +85,6 @@ export async function updateUserRole(
       return { success: false, error: "Not authenticated" };
     }
 
-    // Validate input
     const validation = validateInput(updateUserRoleSchema, {
       userId,
       role: newRole,
@@ -130,7 +110,6 @@ export async function updateUserRole(
       return { success: false, error: "Cannot demote yourself from admin" };
     }
 
-    // Update the user's role
     await db
       .update(userProfile)
       .set({ role: validRole, updatedAt: new Date() })
@@ -143,99 +122,137 @@ export async function updateUserRole(
   }
 }
 
-/**
- * Upgrade user to paid_user (called after successful subscription)
- * This is called internally, not directly by users.
- *
- * @param userId - The user ID to upgrade
- */
-export async function upgradeToPayedUser(userId: string): Promise<void> {
-  // Validate userId
-  const validation = validateInput(patterns.nonEmptyString, userId);
-  if (!validation.success) {
-    throw new Error("Invalid user ID");
-  }
+// ── Plan Actions (subscription tiers) ───────────────────────
 
-  await db
-    .update(userProfile)
-    .set({ role: "paid_user", updatedAt: new Date() })
-    .where(eq(userProfile.userId, validation.data));
+/**
+ * Get the current user's plan
+ */
+export async function getMyPlan(): Promise<ActionResult<UserPlan>> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+
+    if (!session?.user) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const [profile] = await db
+      .select()
+      .from(userProfile)
+      .where(eq(userProfile.userId, session.user.id))
+      .limit(1);
+
+    return { success: true, data: profile?.plan ?? "free" };
+  } catch (error) {
+    console.error("Failed to get plan:", error);
+    return { success: false, error: "Failed to get plan" };
+  }
 }
 
 /**
- * Downgrade user from paid_user (called when subscription ends)
- * This is called internally, not directly by users.
- *
- * @param userId - The user ID to downgrade
+ * Check if current user has paid access (any paid plan or admin)
  */
-export async function downgradeFromPaidUser(userId: string): Promise<void> {
-  // Validate userId
-  const validation = validateInput(patterns.nonEmptyString, userId);
-  if (!validation.success) {
-    throw new Error("Invalid user ID");
-  }
+export async function hasPaidAccess(): Promise<boolean> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) return false;
 
+    const [profile] = await db
+      .select()
+      .from(userProfile)
+      .where(eq(userProfile.userId, session.user.id))
+      .limit(1);
+
+    if (!profile) return false;
+    return profile.role === "admin" || profile.plan !== "free";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if current user is a donor (has made any donation)
+ */
+export async function isDonor(): Promise<boolean> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) return false;
+
+    const [profile] = await db
+      .select()
+      .from(userProfile)
+      .where(eq(userProfile.userId, session.user.id))
+      .limit(1);
+
+    if (!profile) return false;
+    return profile.role === "admin" || (profile.totalDonations ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Upgrade user's plan (called after successful subscription)
+ * This is called internally from the webhook, not directly by users.
+ */
+export async function upgradePlan(
+  userId: string,
+  plan: UserPlan
+): Promise<void> {
+  const userValidation = validateInput(patterns.nonEmptyString, userId);
+  if (!userValidation.success) throw new Error("Invalid user ID");
+
+  const planValidation = validateInput(userPlanSchema, plan);
+  if (!planValidation.success) throw new Error("Invalid plan");
+
+  await db
+    .update(userProfile)
+    .set({ plan: planValidation.data, updatedAt: new Date() })
+    .where(eq(userProfile.userId, userValidation.data));
+}
+
+/**
+ * Downgrade user's plan to free (called when subscription ends)
+ * This is called internally from the webhook, not directly by users.
+ */
+export async function downgradePlan(userId: string): Promise<void> {
+  const validation = validateInput(patterns.nonEmptyString, userId);
+  if (!validation.success) throw new Error("Invalid user ID");
+
+  // Don't downgrade admins
   const [profile] = await db
     .select()
     .from(userProfile)
     .where(eq(userProfile.userId, validation.data))
     .limit(1);
 
-  // Don't downgrade admins or if they've donated before
   if (profile?.role === "admin") return;
-
-  // If they have donations, make them a donor, otherwise basic user
-  const newRole: UserRole =
-    profile?.totalDonations && profile.totalDonations > 0 ? "donor" : "user";
 
   await db
     .update(userProfile)
-    .set({ role: newRole, updatedAt: new Date() })
+    .set({ plan: "free", updatedAt: new Date() })
     .where(eq(userProfile.userId, validation.data));
 }
 
 /**
- * Update donation stats and role (called after successful donation)
- * This is called internally, not directly by users.
- *
- * @param userId - The user ID
- * @param amountInCents - The donation amount in cents
+ * Update donation stats (called after successful donation)
+ * This is called internally from the webhook, not directly by users.
  */
 export async function recordDonation(
   userId: string,
   amountInCents: number
 ): Promise<void> {
-  // Validate input
   const validation = validateInput(recordDonationSchema, {
     userId,
     amountInCents,
   });
-  if (!validation.success) {
-    throw new Error(validation.error);
-  }
+  if (!validation.success) throw new Error(validation.error);
   const { userId: validUserId, amountInCents: validAmount } = validation.data;
-
-  const [profile] = await db
-    .select()
-    .from(userProfile)
-    .where(eq(userProfile.userId, validUserId))
-    .limit(1);
-
-  const currentDonations = profile?.totalDonations ?? 0;
-  const currentLTV = profile?.lifetimeValue ?? 0;
-
-  // Determine new role - keep paid_user or admin, upgrade to donor if basic user
-  let newRole: UserRole = profile?.role ?? "user";
-  if (newRole === "user") {
-    newRole = "donor";
-  }
 
   await db
     .update(userProfile)
     .set({
-      role: newRole,
-      totalDonations: currentDonations + validAmount,
-      lifetimeValue: currentLTV + validAmount,
+      totalDonations: sql`${userProfile.totalDonations} + ${validAmount}`,
+      lifetimeValue: sql`${userProfile.lifetimeValue} + ${validAmount}`,
       updatedAt: new Date(),
     })
     .where(eq(userProfile.userId, validUserId));
@@ -243,15 +260,10 @@ export async function recordDonation(
 
 /**
  * Ensure user profile exists (creates one if not)
- *
- * @param userId - The user ID to ensure has a profile
  */
 export async function ensureUserProfile(userId: string): Promise<void> {
-  // Validate userId
   const validation = validateInput(patterns.nonEmptyString, userId);
-  if (!validation.success) {
-    throw new Error("Invalid user ID");
-  }
+  if (!validation.success) throw new Error("Invalid user ID");
 
   const [existing] = await db
     .select()
@@ -260,9 +272,13 @@ export async function ensureUserProfile(userId: string): Promise<void> {
     .limit(1);
 
   if (!existing) {
-    await db.insert(userProfile).values({
-      userId: validation.data,
-      role: "user",
-    });
+    await db
+      .insert(userProfile)
+      .values({
+        userId: validation.data,
+        role: "user",
+        plan: "free",
+      })
+      .onConflictDoNothing();
   }
 }

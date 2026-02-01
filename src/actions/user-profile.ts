@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+
 import { eq } from "drizzle-orm";
+
 import { db } from "@/db";
 import { userProfile } from "@/db/schema";
 import { auth } from "@/lib/auth";
@@ -11,6 +13,7 @@ import {
   updateProfileSchema,
   type UpdateProfileInput,
 } from "@/lib/validations";
+import type { ActionResult } from "@/types";
 
 /**
  * User Profile Server Actions
@@ -25,11 +28,6 @@ import {
  * 4. Revalidate cache if needed
  * 5. Return result
  */
-
-// Result type for actions
-type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
 
 /**
  * Get the current user's profile
@@ -86,35 +84,21 @@ export async function updateMyProfile(
       website: validatedData.website || null,
     };
 
-    // Check if profile exists
-    const [existing] = await db
-      .select()
-      .from(userProfile)
-      .where(eq(userProfile.userId, session.user.id))
-      .limit(1);
-
-    let profile;
-
-    if (existing) {
-      // Update existing profile
-      [profile] = await db
-        .update(userProfile)
-        .set({
+    // Upsert profile (insert or update if userId already exists)
+    const [profile] = await db
+      .insert(userProfile)
+      .values({
+        userId: session.user.id,
+        ...cleanedData,
+      })
+      .onConflictDoUpdate({
+        target: userProfile.userId,
+        set: {
           ...cleanedData,
           updatedAt: new Date(),
-        })
-        .where(eq(userProfile.userId, session.user.id))
-        .returning();
-    } else {
-      // Create new profile
-      [profile] = await db
-        .insert(userProfile)
-        .values({
-          userId: session.user.id,
-          ...cleanedData,
-        })
-        .returning();
-    }
+        },
+      })
+      .returning();
 
     // Revalidate any pages that show profile data
     revalidatePath("/profile");

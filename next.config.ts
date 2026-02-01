@@ -7,7 +7,7 @@ const securityHeaders = [
   },
   {
     key: "Strict-Transport-Security",
-    value: "max-age=31536000; includeSubDomains",
+    value: "max-age=31536000; includeSubDomains; preload",
   },
   {
     key: "X-Frame-Options",
@@ -24,6 +24,23 @@ const securityHeaders = [
   {
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=()",
+  },
+  // Baseline CSP - tighten per your app's needs
+  // 'unsafe-inline' is required for Next.js style injection and inline scripts
+  // Remove 'unsafe-eval' once you confirm your app doesn't need it
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https:",
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
   },
 ];
 

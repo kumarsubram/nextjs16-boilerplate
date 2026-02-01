@@ -1,17 +1,7 @@
 import Link from "next/link";
-import { APP_NAME } from "@/constants";
+
 import { Logo } from "@/components/ui/logo";
-
-const navigationLinks = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
-];
-
-const legalLinks = [
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/terms", label: "Terms of Service" },
-];
+import { APP_NAME, NAV_LINKS, LEGAL_LINKS } from "@/constants";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -33,7 +23,7 @@ export function Footer() {
           <div>
             <h3 className="mb-3 text-lg font-semibold">Navigation</h3>
             <nav className="flex flex-col gap-2">
-              {navigationLinks.map((link) => (
+              {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -49,7 +39,7 @@ export function Footer() {
           <div>
             <h3 className="mb-3 text-lg font-semibold">Legal</h3>
             <nav className="flex flex-col gap-2">
-              {legalLinks.map((link) => (
+              {LEGAL_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}

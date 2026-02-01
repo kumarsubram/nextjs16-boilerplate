@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 
@@ -27,8 +28,11 @@ function getEnvVarOptional(name: string, defaultValue: string): string {
   return process.env[name] || defaultValue;
 }
 
+const baseURL = getEnvVarOptional("BETTER_AUTH_URL", "http://localhost:3000");
+
 export const auth = betterAuth({
-  baseURL: getEnvVarOptional("BETTER_AUTH_URL", "http://localhost:3000"),
+  appName: getEnvVarOptional("NEXT_PUBLIC_APP_NAME", "My App"),
+  baseURL,
   secret: getEnvVar("BETTER_AUTH_SECRET"),
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -43,6 +47,24 @@ export const auth = betterAuth({
     google: {
       clientId: getEnvVar("GOOGLE_CLIENT_ID"),
       clientSecret: getEnvVar("GOOGLE_CLIENT_SECRET"),
+    },
+  },
+  trustedOrigins: [baseURL],
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          // Auto-create user profile on first signup
+          try {
+            await db
+              .insert(schema.userProfile)
+              .values({ userId: user.id, role: "user", plan: "free" })
+              .onConflictDoNothing();
+          } catch (error) {
+            console.error("Failed to create user profile on signup:", error);
+          }
+        },
+      },
     },
   },
 });

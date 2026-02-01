@@ -1,15 +1,21 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import type Stripe from "stripe";
-import { stripe, constructWebhookEvent } from "@/lib/stripe/server";
+
+import { eq } from "drizzle-orm";
+
+import { upgradePlan, downgradePlan, recordDonation } from "@/actions/roles";
 import { db } from "@/db";
 import {
   stripeCustomer,
   stripeSubscription,
+  stripePayment,
   stripeProduct,
   stripePrice,
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import type { UserPlan } from "@/db/schema";
+import { getStripe, constructWebhookEvent } from "@/lib/stripe/server";
+
+import type Stripe from "stripe";
 
 // Force dynamic rendering - webhooks require runtime environment variables
 export const dynamic = "force-dynamic";
@@ -129,7 +135,7 @@ async function handleCheckoutSessionCompleted(
   const subscriptionId = session.subscription as string;
 
   // Get customer details from Stripe
-  const customer = await stripe.customers.retrieve(customerId);
+  const customer = await getStripe().customers.retrieve(customerId);
   if (customer.deleted) return;
 
   // Get user ID from metadata (you should set this when creating the checkout session)
@@ -159,10 +165,34 @@ async function handleCheckoutSessionCompleted(
       },
     });
 
-  // If subscription, fetch and store it
+  // Handle based on checkout type
   if (subscriptionId) {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    // Subscription checkout — fetch and store
+    const subscription =
+      await getStripe().subscriptions.retrieve(subscriptionId);
     await handleSubscriptionUpsert(subscription, userId);
+  } else if (session.metadata?.type === "donation") {
+    // Donation checkout — record payment and update profile
+    const paymentIntentId = session.payment_intent as string;
+    if (paymentIntentId && session.amount_total) {
+      await db
+        .insert(stripePayment)
+        .values({
+          id: crypto.randomUUID(),
+          userId,
+          stripePaymentIntentId: paymentIntentId,
+          stripeCustomerId: customerId,
+          amount: session.amount_total,
+          currency: session.currency ?? "usd",
+          status: "succeeded",
+          paymentType: "donation",
+          description: "Donation",
+          metadata: (session.metadata ?? {}) as Record<string, string>,
+        })
+        .onConflictDoNothing();
+
+      await recordDonation(userId, session.amount_total);
+    }
   }
 }
 
@@ -246,12 +276,48 @@ async function handleSubscriptionUpsert(
         updatedAt: new Date(),
       },
     });
+
+  // Sync user plan with subscription status
+  if (subscription.status === "active" || subscription.status === "trialing") {
+    // Determine plan tier from product metadata
+    const [price] = await db
+      .select()
+      .from(stripePrice)
+      .where(eq(stripePrice.stripePriceId, priceId))
+      .limit(1);
+
+    let plan: UserPlan = "pro"; // Default tier
+    if (price) {
+      const [product] = await db
+        .select()
+        .from(stripeProduct)
+        .where(eq(stripeProduct.stripeProductId, price.stripeProductId))
+        .limit(1);
+
+      // Set metadata.plan on your Stripe products to control the tier
+      if (
+        product?.metadata?.plan &&
+        ["pro", "enterprise"].includes(product.metadata.plan)
+      ) {
+        plan = product.metadata.plan as UserPlan;
+      }
+    }
+
+    await upgradePlan(userId, plan);
+  }
 }
 
 /**
  * Handle subscription deleted
  */
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+  // Look up the user for this subscription
+  const [sub] = await db
+    .select({ userId: stripeSubscription.userId })
+    .from(stripeSubscription)
+    .where(eq(stripeSubscription.stripeSubscriptionId, subscription.id))
+    .limit(1);
+
   await db
     .update(stripeSubscription)
     .set({
@@ -260,6 +326,11 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       updatedAt: new Date(),
     })
     .where(eq(stripeSubscription.stripeSubscriptionId, subscription.id));
+
+  // Downgrade user plan to free
+  if (sub?.userId) {
+    await downgradePlan(sub.userId);
+  }
 }
 
 /**

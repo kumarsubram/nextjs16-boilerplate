@@ -1,9 +1,9 @@
 import { type FC } from "react";
-import Link from "next/link";
+
 import type { Metadata } from "next";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
+import Link from "next/link";
+
 import {
   Info,
   Mail,
@@ -18,6 +18,10 @@ import {
   RefreshCw,
   Globe,
 } from "lucide-react";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   APP_NAME,
   APP_URL,

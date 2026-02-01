@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
 import { motion, AnimatePresence, type Variants } from "framer-motion";
+
 import { AuthButton } from "@/components/auth/auth-button";
 
 interface NavLink {
@@ -13,7 +15,7 @@ interface NavLink {
 interface MobileNavPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  links: NavLink[];
+  links: readonly NavLink[];
 }
 
 export function MobileNavPanel({

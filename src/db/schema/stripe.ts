@@ -1,4 +1,5 @@
 import {
+  index,
   pgTable,
   text,
   timestamp,
@@ -7,6 +8,7 @@ import {
   jsonb,
   pgEnum,
 } from "drizzle-orm/pg-core";
+
 import { user } from "./auth";
 
 /**
@@ -103,42 +105,51 @@ export const stripePrice = pgTable("stripe_price", {
  * Stripe Subscriptions
  *
  * Tracks active subscriptions for users.
- * Users with active subscriptions should have role = "paid_user".
+ * Users with active subscriptions should have plan set to their tier (e.g., "pro").
  */
-export const stripeSubscription = pgTable("stripe_subscription", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  stripeSubscriptionId: text("stripe_subscription_id").notNull().unique(),
-  stripeCustomerId: text("stripe_customer_id").notNull(),
-  stripePriceId: text("stripe_price_id").notNull(),
-  status: text("status")
-    .notNull()
-    .$type<
-      | "active"
-      | "canceled"
-      | "incomplete"
-      | "incomplete_expired"
-      | "past_due"
-      | "paused"
-      | "trialing"
-      | "unpaid"
-    >(),
-  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
-  currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
-  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
-  canceledAt: timestamp("canceled_at", { withTimezone: true }),
-  trialStart: timestamp("trial_start", { withTimezone: true }),
-  trialEnd: timestamp("trial_end", { withTimezone: true }),
-  metadata: jsonb("metadata").$type<Record<string, string>>(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const stripeSubscription = pgTable(
+  "stripe_subscription",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    stripeSubscriptionId: text("stripe_subscription_id").notNull().unique(),
+    stripeCustomerId: text("stripe_customer_id").notNull(),
+    stripePriceId: text("stripe_price_id").notNull(),
+    status: text("status")
+      .notNull()
+      .$type<
+        | "active"
+        | "canceled"
+        | "incomplete"
+        | "incomplete_expired"
+        | "past_due"
+        | "paused"
+        | "trialing"
+        | "unpaid"
+      >(),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    currentPeriodStart: timestamp("current_period_start", {
+      withTimezone: true,
+    }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    trialStart: timestamp("trial_start", { withTimezone: true }),
+    trialEnd: timestamp("trial_end", { withTimezone: true }),
+    metadata: jsonb("metadata").$type<Record<string, string>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("subscription_user_id_idx").on(table.userId),
+    index("subscription_status_idx").on(table.status),
+  ]
+);
 
 /**
  * Stripe Payments
@@ -146,36 +157,40 @@ export const stripeSubscription = pgTable("stripe_subscription", {
  * Records of one-time payments including donations.
  * Use paymentType to distinguish between donations and purchases.
  */
-export const stripePayment = pgTable("stripe_payment", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  stripePaymentIntentId: text("stripe_payment_intent_id").notNull().unique(),
-  stripeCustomerId: text("stripe_customer_id"),
-  amount: integer("amount").notNull(), // Amount in cents
-  currency: text("currency").notNull(),
-  status: text("status")
-    .notNull()
-    .$type<
-      | "canceled"
-      | "processing"
-      | "requires_action"
-      | "requires_capture"
-      | "requires_confirmation"
-      | "requires_payment_method"
-      | "succeeded"
-    >(),
-  paymentType: paymentTypeEnum("payment_type").notNull().default("one_time"),
-  description: text("description"), // e.g., "Thank you donation", "Pro upgrade"
-  metadata: jsonb("metadata").$type<Record<string, string>>(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const stripePayment = pgTable(
+  "stripe_payment",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    stripePaymentIntentId: text("stripe_payment_intent_id").notNull().unique(),
+    stripeCustomerId: text("stripe_customer_id"),
+    amount: integer("amount").notNull(), // Amount in cents
+    currency: text("currency").notNull(),
+    status: text("status")
+      .notNull()
+      .$type<
+        | "canceled"
+        | "processing"
+        | "requires_action"
+        | "requires_capture"
+        | "requires_confirmation"
+        | "requires_payment_method"
+        | "succeeded"
+      >(),
+    paymentType: paymentTypeEnum("payment_type").notNull().default("one_time"),
+    description: text("description"), // e.g., "Thank you donation", "Pro upgrade"
+    metadata: jsonb("metadata").$type<Record<string, string>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("payment_user_id_idx").on(table.userId)]
+);
 
 // Type inference helpers
 export type StripeCustomer = typeof stripeCustomer.$inferSelect;

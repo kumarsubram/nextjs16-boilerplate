@@ -6,23 +6,28 @@ import {
   pgEnum,
   integer,
 } from "drizzle-orm/pg-core";
+
 import { user } from "./auth";
 
 /**
  * User Roles Enum
  *
- * Defines the available user roles in the system.
+ * Defines permission levels in the system.
  * - admin: Full system access, can manage users and settings
- * - user: Base free tier user
- * - paid_user: User with active paid subscription
- * - donor: User who has made a one-time donation
+ * - user: Regular user (default)
  */
-export const userRoleEnum = pgEnum("user_role", [
-  "admin",
-  "user",
-  "paid_user",
-  "donor",
-]);
+export const userRoleEnum = pgEnum("user_role", ["admin", "user"]);
+
+/**
+ * User Plan Enum
+ *
+ * Defines subscription tiers. Synced from Stripe product metadata.
+ * Add new tiers here and set metadata.plan on your Stripe products.
+ * - free: No active subscription (default)
+ * - pro: Pro plan subscriber
+ * - enterprise: Enterprise plan subscriber
+ */
+export const userPlanEnum = pgEnum("user_plan", ["free", "pro", "enterprise"]);
 
 /**
  * User Profile Table
@@ -44,8 +49,9 @@ export const userProfile = pgTable("user_profile", {
   location: text("location"),
   website: text("website"),
 
-  // Role and access
+  // Role (permissions) and plan (subscription tier)
   role: userRoleEnum("role").notNull().default("user"),
+  plan: userPlanEnum("plan").notNull().default("free"),
 
   // Payment tracking (for quick access without joining stripe tables)
   totalDonations: integer("total_donations").notNull().default(0), // in cents
@@ -61,9 +67,14 @@ export const userProfile = pgTable("user_profile", {
 });
 
 /**
- * User Role Type
+ * User Role Type (permissions)
  */
-export type UserRole = "admin" | "user" | "paid_user" | "donor";
+export type UserRole = "admin" | "user";
+
+/**
+ * User Plan Type (subscription tier)
+ */
+export type UserPlan = "free" | "pro" | "enterprise";
 
 // Type inference helpers
 export type UserProfile = typeof userProfile.$inferSelect;

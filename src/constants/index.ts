@@ -46,3 +46,19 @@ export const COMPANY_WEBSITE =
  */
 export const PRIVACY_POLICY_LAST_UPDATED = "January 2026";
 export const TERMS_OF_SERVICE_LAST_UPDATED = "January 2026";
+
+/**
+ * Navigation links
+ *
+ * Shared between Navbar, Footer, and Mobile Nav.
+ */
+export const NAV_LINKS = [
+  { href: "/", label: "Home" },
+  { href: "/about", label: "About" },
+  { href: "/contact", label: "Contact" },
+] as const;
+
+export const LEGAL_LINKS = [
+  { href: "/privacy", label: "Privacy Policy" },
+  { href: "/terms", label: "Terms of Service" },
+] as const;

@@ -10,12 +10,15 @@ Next.js 16 boilerplate with React 19, TypeScript strict mode, Tailwind CSS v4, a
 
 **IMPORTANT**: Always check these docs for the latest setup instructions:
 
-| Document              | Purpose                                          |
-| --------------------- | ------------------------------------------------ |
-| `docs/CLAUDE.md`      | This file - coding conventions for Claude        |
-| `docs/STRIPE.md`      | Stripe setup, payments, subscriptions, donations |
-| `docs/GOOGLE_AUTH.md` | Google OAuth setup step-by-step                  |
-| `README.md`           | Project overview and quick start                 |
+| Document                    | Purpose                                          |
+| --------------------------- | ------------------------------------------------ |
+| `docs/CLAUDE.md`            | This file - coding conventions for Claude        |
+| `docs/DB_SETUP.md`          | Database setup, schema, seeding                  |
+| `docs/STRIPE.md`            | Stripe setup, payments, subscriptions, donations |
+| `docs/GOOGLE_AUTH.md`       | Google OAuth setup step-by-step                  |
+| `docs/NEXT_STEPS.md`        | Template roadmap and how-tos                     |
+| `docs/NEXT_STEPS_DEVOPS.md` | Production deployment checklist                  |
+| `README.md`                 | Project overview and quick start                 |
 
 When updating features, also update the relevant documentation.
 
@@ -29,6 +32,7 @@ npm run type-check   # Check TypeScript types
 npm run test         # Run tests
 npm run db:push      # Push schema to database (dev)
 npm run db:generate  # Generate migrations (prod)
+npm run db:seed      # Seed sample data
 ```
 
 ## Project Structure
@@ -192,26 +196,44 @@ For legal pages, blog posts, or documentation:
 - Export types alongside their related code
 - Use `noUncheckedIndexedAccess` - always check array/object access
 
-## User Roles
+## User Roles & Plans
 
-The boilerplate includes a role system:
+The boilerplate separates **role** (permissions) from **plan** (subscription tier):
 
-| Role        | Description                    |
-| ----------- | ------------------------------ |
-| `admin`     | Full access, manually assigned |
-| `paid_user` | Active subscription            |
-| `donor`     | Made a donation                |
-| `user`      | Free tier (default)            |
+### Roles (permissions)
 
-### Checking Roles
+| Role    | Description                    |
+| ------- | ------------------------------ |
+| `admin` | Full access, manually assigned |
+| `user`  | Regular user (default)         |
+
+### Plans (subscription tiers)
+
+| Plan         | Description                      |
+| ------------ | -------------------------------- |
+| `free`       | No active subscription (default) |
+| `pro`        | Pro plan subscriber              |
+| `enterprise` | Enterprise plan subscriber       |
+
+Plans are synced from Stripe via webhooks. Set `metadata.plan` on your Stripe products to control the tier (e.g., `"pro"`, `"enterprise"`).
+
+Donor status is derived from `totalDonations > 0` — no separate role needed.
+
+### Checking Access
 
 ```typescript
-import { isAdmin, hasPaidAccess, isDonor, getMyRole } from "@/actions";
+import {
+  isAdmin,
+  hasPaidAccess,
+  isDonor,
+  getMyRole,
+  getMyPlan,
+} from "@/actions";
 
-// Check access levels
-const isAdminUser = await isAdmin();
-const canAccessPremium = await hasPaidAccess(); // admin OR paid_user
-const hasSupported = await isDonor(); // admin, paid_user, OR donor
+const isAdminUser = await isAdmin(); // role === "admin"
+const canAccessPremium = await hasPaidAccess(); // admin OR plan !== "free"
+const hasSupported = await isDonor(); // admin OR totalDonations > 0
+const plan = await getMyPlan(); // "free" | "pro" | "enterprise"
 ```
 
 ### Protecting Pages
@@ -267,11 +289,8 @@ export * from "./posts";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
+import type { ActionResult } from "@/types";
 import { validateInput, mySchema } from "@/lib/validations";
-
-type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
 
 export async function myAction(data: MyInput): Promise<ActionResult<MyType>> {
   try {
@@ -306,15 +325,18 @@ export async function myAction(data: MyInput): Promise<ActionResult<MyType>> {
 import { getMyProfile, updateMyProfile, deleteMyProfile } from "@/actions";
 ```
 
-**Roles:**
+**Roles & Plans:**
 
 ```typescript
 import {
   getMyRole,
+  getMyPlan,
   isAdmin,
   hasPaidAccess,
   isDonor,
   updateUserRole,
+  upgradePlan,
+  downgradePlan,
 } from "@/actions";
 ```
 
@@ -554,6 +576,57 @@ Optional (for payments):
 - `STRIPE_SECRET_KEY` - Stripe secret key
 - `STRIPE_WEBHOOK_SECRET` - Stripe webhook secret
 
+## Agent Skills (`.claude/skills/`)
+
+Installed skills provide additional guidelines for code quality:
+
+| Skill                         | Source            | Purpose                                                                     |
+| ----------------------------- | ----------------- | --------------------------------------------------------------------------- |
+| `vercel-react-best-practices` | vercel-labs       | 57 rules for React/Next.js performance optimization                         |
+| `vercel-composition-patterns` | vercel-labs       | Compound components, avoiding boolean prop proliferation                    |
+| `web-design-guidelines`       | vercel-labs       | UI review against web interface best practices                              |
+| `frontend-design`             | anthropics        | Production-grade, distinctive frontend design                               |
+| `webapp-testing`              | anthropics        | Playwright E2E testing toolkit                                              |
+| `stripe-best-practices`       | stripe (official) | Stripe integration best practices (CheckoutSessions, webhooks, Connect)     |
+| `shadcn-component-discovery`  | mattbx            | Search 1,500+ shadcn components before building custom                      |
+| `shadcn-component-review`     | mattbx            | Review components against shadcn patterns and theme styles                  |
+| `nextjs`                      | jezweb            | Next.js 16 patterns, Cache Components, breaking changes, 25 error fixes     |
+| `tailwind-v4-shadcn`          | jezweb            | Tailwind v4 + shadcn CSS variable architecture and dark mode                |
+| `accessibility`               | jezweb            | WCAG 2.1 AA compliance (contrast, keyboard nav, screen readers)             |
+| `tailwind-design-system`      | wshobson          | Design tokens, CVA variants, responsive grids, animations, theming          |
+| `stripe-integration`          | wshobson          | Stripe implementation patterns (checkout, subscriptions, webhooks, refunds) |
+| `better-auth-best-practices`  | better-auth       | Official Better Auth skill: adapters, sessions, security, plugins           |
+| `seo-geo`                     | resciencelab      | SEO + GEO (AI search engine optimization), schema markup, JSON-LD           |
+
+### Key Performance Rules (from vercel-react-best-practices)
+
+**CRITICAL - Eliminating Waterfalls:**
+
+- Use `Promise.all()` for independent async operations
+- Move `await` into branches where actually used (defer await)
+- Use Suspense boundaries to stream content progressively
+
+**CRITICAL - Bundle Size:**
+
+- Import directly from modules, avoid barrel file re-exports
+- Use `next/dynamic` for heavy components not needed at initial load
+- Defer non-critical third-party scripts (analytics, logging) until after hydration
+
+**HIGH - Server-Side Performance:**
+
+- Authenticate server actions like API routes
+- Use `React.cache()` for per-request deduplication
+- Minimize data passed from Server Components to Client Components
+- Use `after()` for non-blocking operations (logging, analytics)
+
+**MEDIUM - Component Architecture (from vercel-composition-patterns):**
+
+- Avoid boolean prop proliferation - use composition instead
+- Use compound components with shared context for complex UIs
+- Create explicit variant components instead of boolean modes
+- Prefer `children` for composition over render props
+- React 19: use `use()` instead of `useContext()`, no need for `forwardRef`
+
 ## Don'ts
 
 - Don't use `any` type - find the proper type or use `unknown`
@@ -569,3 +642,7 @@ Optional (for payments):
 - Don't use hardcoded colors (`text-gray-500`) - use semantic colors (`text-muted-foreground`)
 - Don't use fixed font sizes - always use responsive sizes (e.g., `text-sm sm:text-base`)
 - Don't use fixed padding - use responsive padding (e.g., `p-4 sm:p-6`)
+- Don't create sequential awaits for independent operations - use `Promise.all()`
+- Don't import from barrel files (`index.ts` re-exports) - import directly from source
+- Don't pass full objects from Server to Client Components - pick only needed fields
+- Don't add boolean props to customize component behavior - use composition

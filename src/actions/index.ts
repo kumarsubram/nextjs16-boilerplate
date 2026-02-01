@@ -11,11 +11,15 @@ export { getMyProfile, updateMyProfile, deleteMyProfile } from "./user-profile";
 // Role Actions
 export {
   getMyRole,
+  getMyPlan,
   hasRole,
   isAdmin,
   hasPaidAccess,
   isDonor,
   updateUserRole,
+  upgradePlan,
+  downgradePlan,
+  recordDonation,
   ensureUserProfile,
 } from "./roles";
 
@@ -24,7 +28,6 @@ export {
   isStripeAvailable,
   createSubscriptionCheckout,
   createDonationCheckout,
-  createCheckout, // deprecated alias
   openCustomerPortal,
   getMySubscription,
   getMyDonations,

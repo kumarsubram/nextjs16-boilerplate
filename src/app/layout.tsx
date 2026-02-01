@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+
 import { Geist, Geist_Mono } from "next/font/google";
+
 import { Navbar, Footer } from "@/components/layouts";
 import { APP_NAME, APP_URL } from "@/constants";
 import "./globals.css";

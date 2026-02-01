@@ -1,15 +1,20 @@
 /**
- * Role Validation Schemas
+ * Role & Plan Validation Schemas
  *
- * Zod schemas for validating role-related data.
+ * Zod schemas for validating role and plan data.
  */
 
 import { z } from "zod";
 
 /**
- * Valid user roles
+ * Valid user roles (permissions)
  */
-export const userRoles = ["admin", "user", "paid_user", "donor"] as const;
+export const userRoles = ["admin", "user"] as const;
+
+/**
+ * Valid user plans (subscription tiers)
+ */
+export const userPlans = ["free", "pro", "enterprise"] as const;
 
 /**
  * Schema for user role
@@ -19,6 +24,15 @@ export const userRoleSchema = z.enum(userRoles, {
 });
 
 export type UserRoleInput = z.infer<typeof userRoleSchema>;
+
+/**
+ * Schema for user plan
+ */
+export const userPlanSchema = z.enum(userPlans, {
+  message: "Invalid plan",
+});
+
+export type UserPlanInput = z.infer<typeof userPlanSchema>;
 
 /**
  * Schema for updating a user's role (admin action)

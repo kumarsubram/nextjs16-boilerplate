@@ -1,19 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMobileMenu } from "@/hooks/use-mobile-menu";
+
+import { AuthButton } from "@/components/auth/auth-button";
 import { MobileHamburger } from "@/components/navigation/mobile-hamburger";
 import { MobileNavPanel } from "@/components/navigation/mobile-nav-panel";
 import { Logo } from "@/components/ui/logo";
-import { AuthButton } from "@/components/auth/auth-button";
-
-const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
-];
+import { NAV_LINKS } from "@/constants";
+import { useMobileMenu } from "@/hooks/use-mobile-menu";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -47,7 +44,7 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <nav className="hidden flex-1 items-center justify-center space-x-6 text-sm font-medium md:flex">
-            {navLinks.map((link) => {
+            {NAV_LINKS.map((link) => {
               const isActive = pathname === link.href;
               return (
                 <Link
@@ -76,7 +73,7 @@ export function Navbar() {
       </header>
 
       {/* Mobile Navigation Panel */}
-      <MobileNavPanel isOpen={isOpen} onClose={closeMenu} links={navLinks} />
+      <MobileNavPanel isOpen={isOpen} onClose={closeMenu} links={NAV_LINKS} />
     </>
   );
 }
